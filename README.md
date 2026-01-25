@@ -25,7 +25,6 @@ Cloud Run에 배포된 단일 MCP 서버가 여러 클라이언트(Claude, Curso
 
 ```mermaid
 graph TD
-    %% 스타일 정의
     classDef user fill:#f9f,stroke:#333,stroke-width:2px,color:#000;
     classDef client fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000;
     classDef cloud fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000;
@@ -38,28 +37,32 @@ graph TD
         Cursor[Cursor IDE]:::client
     end
 
-    User -->|1. Prompt (Chat)| Claude
-    User -->|1. Code/Prompt| Cursor
+    User -->|"1. Prompt (Chat)"| Claude
+    User -->|"1. Code & Prompt"| Cursor
 
     subgraph Backend [☁️ Remote Infrastructure]
-        CloudRun[⚙️ MCP Server (Google Cloud Run)]:::cloud
+        CloudRun[⚙️ MCP Server / Cloud Run]:::cloud
     end
 
     Claude --"2. Custom Connector (SSE)"--> CloudRun
     Cursor --"2. MCP Settings (SSE)"--> CloudRun
 
     subgraph SaaS_Tools [🌐 External APIs]
-        CloudRun --"3. API Query"--> Jira(<img src='https://cdn.iconscout.com/icon/free/png-256/free-jira-3628861-3030026.png' width='20' height='20' /> Jira Software):::external
-        CloudRun --"3. API Query"--> Notion(<img src='https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png' width='20' height='20' /> Notion):::external
-        CloudRun --"3. API Query"--> GitHub(<img src='https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png' width='20' height='20' /> GitHub):::external
+        Jira(Jira Software):::external
+        Notion(Notion):::external
+        GitHub(GitHub):::external
     end
 
-    Jira -.->"4. Data Response"--> CloudRun
+    CloudRun --"3. API Query"--> Jira
+    CloudRun --"3. API Query"--> Notion
+    CloudRun --"3. API Query"--> GitHub
+
+    Jira -.-"4. Data Response"--> CloudRun
     Notion -.-> CloudRun
     GitHub -.-> CloudRun
 
-    CloudRun -.->"5. Context Data"--> Claude
-    CloudRun -.->"5. Context Data"--> Cursor
+    CloudRun -.-"5. Context Data"--> Claude
+    CloudRun -.-"5. Context Data"--> Cursor
 
 ```
 

@@ -1,154 +1,104 @@
-# Auto-Changelog & Retrospective Agent
+# 🤖 Workplace Automation AI Agent with MCP
 
-> **"흩어진 개발 파편(Fragment)을 모아, 팀의 완벽한 회고(Insight)를 완성하다."**
+### Jira, Notion, GitHub 워크플로우 통합 자동화 프로젝트
 
-MCP(Model Context Protocol)를 활용하여 GitHub, Jira, Notion, Slack 등 여러 플랫폼의 데이터를 통합하고, AI를 통해 자동으로 주간 회고 및 요약을 생성하는 FastAPI 기반 서비스입니다.
+> **한 줄 요약:** 사내 협업 툴(Jira, Notion, GitHub)의 데이터를 **표준 MCP 프로토콜**로 통합하여, **Claude Desktop**뿐만 아니라 **Cursor IDE** 등 다양한 환경에서 업무를 자동화하는 AI Agent 시스템입니다.
 
-## 🚀 프로젝트 개요
+---
 
-개발자들의 가장 큰 Pain Point인 **"주간 보고", "배포 노트 작성", "회고"** 업무를 자동화하는 AI 에이전트 서비스입니다.
+## 🧐 프로젝트 배경 (Motivation)
 
-## 📋 주요 기능
+개발 업무 중 발생하는 반복적인 컨텍스트 스위칭을 줄이기 위해 시작했습니다. 특히 기획자/PM과는 **Claude**로 소통하고, 개발 팀원들은 **Cursor IDE**에서 코드를 작성하는 환경을 고려하여, **어떤 인터페이스에서도 동일한 맥락(Context)을 공유할 수 있는 표준화된 Agent**가 필요했습니다.
 
-- **멀티 소스 데이터 통합**: Notion, Jira, GitHub, Slack 등 여러 플랫폼 데이터 수집
-- **재귀적 맥락 연결**: Linked Data 추적을 통한 작업 흐름 완전성 확보
-- **팀 중심 자동화**: 프로젝트 단위 모니터링 및 기여도 추적
-- **자동 회고 생성**: LLM을 활용한 고품질 보고서 자동 생성
+이를 위해 LLM과 외부 시스템 간의 표준 프로토콜인 **MCP(Model Context Protocol)**를 도입하여 유연하고 확장 가능한 아키텍처를 구현했습니다.
 
-## 🛠️ 기술 스택
+## 🎯 주요 기능 (Features)
 
-- **Framework**: FastAPI
-- **Language**: Python 3.10+
-- **Protocol**: MCP (Model Context Protocol)
-- **LLM**: OpenAI / Anthropic Claude
+* **Multi-Client Support:** Claude Desktop 앱과 Cursor IDE 양쪽에서 동일한 툴 제어 가능.
+* **Jira 이슈 핸들링:** "이번 주 내 티켓 리스트 뽑아줘" 등의 명령으로 실시간 이슈 트래킹.
+* **Notion 문서화:** 개발 진행 상황을 바탕으로 주간 업무 보고서 및 회의록 자동 생성.
+* **GitHub 연동:** IDE(Cursor) 내에서 곧바로 PR 상태 확인 및 코드 리뷰 요약 요청.
 
-## 📦 설치 및 실행
+## 🏗️ 시스템 아키텍처 (Architecture)
 
-### 1. 가상환경 생성 및 활성화
+Cloud Run에 배포된 단일 MCP 서버가 여러 클라이언트(Claude, Cursor)의 요청을 처리하는 중앙 집중형 구조입니다.
 
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
+```mermaid
+graph TD
+    %% 스타일 정의
+    classDef user fill:#f9f,stroke:#333,stroke-width:2px,color:#000;
+    classDef client fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000;
+    classDef cloud fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000;
+    classDef external fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000;
 
-# Linux/Mac
-python -m venv venv
-source venv/bin/activate
-```
+    User[🙋‍♂️ User / Developer]:::user
 
-### 2. 의존성 설치
+    subgraph Clients [🖥️ MCP Clients]
+        Claude[Claude Desktop App]:::client
+        Cursor[Cursor IDE]:::client
+    end
 
-```bash
-pip install -r requirements.txt
-```
+    User -->|1. Prompt (Chat)| Claude
+    User -->|1. Code/Prompt| Cursor
 
-### 3. 환경 변수 설정
+    subgraph Backend [☁️ Remote Infrastructure]
+        CloudRun[⚙️ MCP Server (Google Cloud Run)]:::cloud
+    end
 
-`.env` 파일을 생성하고 필요한 설정을 추가하세요:
+    Claude --"2. Custom Connector (SSE)"--> CloudRun
+    Cursor --"2. MCP Settings (SSE)"--> CloudRun
 
-```env
-# LLM Settings
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your_api_key_here
+    subgraph SaaS_Tools [🌐 External APIs]
+        CloudRun --"3. API Query"--> Jira(<img src='https://cdn.iconscout.com/icon/free/png-256/free-jira-3628861-3030026.png' width='20' height='20' /> Jira Software):::external
+        CloudRun --"3. API Query"--> Notion(<img src='https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png' width='20' height='20' /> Notion):::external
+        CloudRun --"3. API Query"--> GitHub(<img src='https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png' width='20' height='20' /> GitHub):::external
+    end
 
-# MCP Server Paths
-MCP_NOTION_SERVER_PATH=
-MCP_JIRA_SERVER_PATH=
-MCP_GITHUB_SERVER_PATH=
-MCP_SLACK_SERVER_PATH=
+    Jira -.->"4. Data Response"--> CloudRun
+    Notion -.-> CloudRun
+    GitHub -.-> CloudRun
 
-# 각 서비스별 API 키 및 설정
-NOTION_API_KEY=
-JIRA_URL=
-JIRA_EMAIL=
-JIRA_API_TOKEN=
-GITHUB_TOKEN=
-SLACK_BOT_TOKEN=
-```
-
-### 4. 서버 실행
-
-```bash
-# 개발 모드
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 프로덕션 모드
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-### 5. API 문서 확인
-
-서버 실행 후 다음 URL에서 API 문서를 확인할 수 있습니다:
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## 📁 프로젝트 구조
+    CloudRun -.->"5. Context Data"--> Claude
+    CloudRun -.->"5. Context Data"--> Cursor
 
 ```
-mcp-bot-test/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                 # FastAPI 애플리케이션 진입점
-│   ├── api/                    # API 라우터
-│   │   ├── __init__.py
-│   │   └── endpoints/
-│   │       ├── health.py
-│   │       └── retrospective.py
-│   ├── core/                   # 핵심 설정
-│   │   ├── __init__.py
-│   │   └── config.py           # 환경 변수 및 설정
-│   ├── schemas/                 # Pydantic 스키마
-│   │   ├── __init__.py
-│   │   └── retrospective.py
-│   └── services/                # 비즈니스 로직
-│       ├── __init__.py
-│       ├── mcp_client.py        # MCP 클라이언트
-│       └── retrospective_service.py
-├── requirements.txt
-├── pyproject.toml
-├── .env.example
-├── .gitignore
-└── README.md
-```
 
-## 🔌 API 엔드포인트
+### 기술 스택 (Tech Stack)
 
-### Health Check
-- `GET /` - 기본 정보
-- `GET /health` - 헬스 체크
-- `GET /api/v1/health` - API 헬스 체크
+* **Clients:** Claude Desktop App, Cursor IDE
+* **Protocol:** Model Context Protocol (MCP) over SSE (Server-Sent Events)
+* **Backend:** Google Cloud Run (Node.js/TypeScript)
+* **Integrations:** Jira, Notion, GitHub APIs
 
-### Retrospective
-- `POST /api/v1/retrospective/generate` - 기간 지정 회고 생성
-- `GET /api/v1/retrospective/generate/weekly` - 최근 7일 회고 자동 생성
+## 🛠️ 클라이언트 연결 방법 (How to Connect)
 
-## 🧪 개발
+이 프로젝트는 별도의 로컬 설치 없이, 배포된 MCP 서버 URL만으로 연결이 가능합니다.
 
-### 코드 포맷팅
+### 1. Claude Desktop App 연결
 
-```bash
-black app/
-ruff check app/
-```
+설정 파일(`json`)을 직접 수정하지 않고, 최신 UI 기능을 활용합니다.
 
-### 테스트 실행
+1. **Settings** 메뉴 진입.
+2. **Developer** (또는 Connections) 탭 클릭.
+3. **Edit Config** 대신 **`Add Custom Connector`** (또는 Remote MCP Server) 버튼 클릭.
+4. URL 입력창에 배포된 MCP 서버 엔드포인트 입력 (예: `https://.../mcp`).
+5. 연결 상태가 녹색(Connected)으로 변하는지 확인.
 
-```bash
-pytest
-```
+### 2. Cursor IDE 연결
 
-## 📝 현재 진행 상황
+개발 팀원들은 코드를 작성하며 바로 Agent를 호출할 수 있습니다.
 
-- ✅ FastAPI 기본 구조 구성
-- ✅ MCP 클라이언트 서비스 구조 설계
-- ✅ API 엔드포인트 기본 구현
-- 🔄 GitHub MCP 연결 (진행 중)
-- ⏳ 자동화 트리거 구축 (예정)
-- ⏳ Noise Filtering 로직 강화 (예정)
+1. **Cursor Settings** (`Cmd + ,` or `Ctrl + ,`) 진입.
+2. **General > MCP Servers** 메뉴로 이동.
+3. **`Add new MCP server`** 클릭.
+4. **Type:** `SSE` 선택.
+5. **URL:** 배포된 MCP 서버 엔드포인트 입력.
+6. 저장 후 Composer(`Cmd + I`)나 Chat(`Cmd + L`)에서 `@`를 눌러 도구 연동 확인.
 
-## 📚 참고 문서
+## 💡 트러블 슈팅 (Troubleshooting Log)
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [MCP Documentation](https://modelcontextprotocol.io/)
-- [프로젝트 상세 명세서](./mcp-bot-test.md)
+**이슈: `claude_desktop_config.json`을 통한 원격 연결 실패**
+
+* **현상:** 초기 개발 시 로컬 설정 파일(`json`)에 원격 URL을 직접 입력했으나, Claude Desktop이 제대로 인식하지 못하거나 연결이 불안정한 현상 발생.
+* **원인:** 로컬 설정 파일 방식은 주로 로컬 프로세스 실행(`npx ...`)에 최적화되어 있어, 원격 SSE 스트림 처리에 일부 제약이 있었음.
+* **해결:** Claude Desktop의 설정 파일 직접 수정 방식을 버리고, 앱 내에서 제공하는 **'Custom Connector' UI**를 통해 엔드포인트를 등록하는 방식으로 변경하여 즉시 해결. 이를 통해 프록시 서버 등 불필요한 미들웨어 없이 직관적인 연결에 성공함.

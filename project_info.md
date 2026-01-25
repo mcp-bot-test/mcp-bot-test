@@ -5,7 +5,7 @@
 ## 1. 프로젝트 개요
 
 * **개발 기간:** 2025.12 ~ 2026.01 (약 2개월)
-* **개발자:** 구연우(@bluelayzxx), 김형민(@hyeong8465)
+* **개발자:** 구연우([@bluelayzxx](https://github.com/nuyeo)), 김형민([@hyeong8465](https://github.com/hyeong8465))
 * **한 줄 소개:** Claude Desktop 환경에서 사내 협업 툴(Jira, Notion, GitHub)을 MCP(Model Context Protocol)로 연결하여, 대화만으로 주간 업무 리포트를 자동 생성하고 이슈를 동기화하는 AI Agent 서비스입니다.
 
 ## 2. 기획 배경 (Problem & Solution)

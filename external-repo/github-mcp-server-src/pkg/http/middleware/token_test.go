@@ -177,7 +177,7 @@ func TestExtractUserToken(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			middleware := ExtractUserToken(oauthCfg)
+			middleware := ExtractUserToken(oauthCfg, "")
 			handler := middleware(nextHandler)
 
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -217,7 +217,7 @@ func TestExtractUserToken_NilOAuthConfig(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	middleware := ExtractUserToken(nil)
+	middleware := ExtractUserToken(nil, "")
 	handler := middleware(nextHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -243,7 +243,7 @@ func TestExtractUserToken_MissingAuthHeader_WWWAuthenticateFormat(t *testing.T) 
 		w.WriteHeader(http.StatusOK)
 	})
 
-	middleware := ExtractUserToken(oauthCfg)
+	middleware := ExtractUserToken(oauthCfg, "")
 	handler := middleware(nextHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -258,6 +258,33 @@ func TestExtractUserToken_MissingAuthHeader_WWWAuthenticateFormat(t *testing.T) 
 	assert.Contains(t, wwwAuth, "Bearer")
 	assert.Contains(t, wwwAuth, "resource_metadata=")
 	assert.Contains(t, wwwAuth, "/.well-known/oauth-protected-resource")
+}
+
+func TestExtractUserToken_ServerManagedToken(t *testing.T) {
+	oauthCfg := &oauth.Config{
+		BaseURL:             "https://example.com",
+		AuthorizationServer: "https://github.com/login/oauth",
+	}
+	serverToken := "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+	var capturedTokenInfo *ghcontext.TokenInfo
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedTokenInfo, _ = ghcontext.GetTokenInfo(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := ExtractUserToken(oauthCfg, serverToken)
+	handler := middleware(nextHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	// No Authorization header - server token should be used
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	require.NotNil(t, capturedTokenInfo)
+	assert.Equal(t, serverToken, capturedTokenInfo.Token)
+	assert.Equal(t, utils.TokenTypePersonalAccessToken, capturedTokenInfo.TokenType)
 }
 
 func TestSendAuthChallenge(t *testing.T) {

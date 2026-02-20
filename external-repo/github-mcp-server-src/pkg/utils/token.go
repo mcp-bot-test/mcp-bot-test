@@ -73,3 +73,21 @@ func ParseAuthorizationHeader(req *http.Request) (tokenType TokenType, token str
 
 	return 0, "", ErrBadAuthorizationHeader
 }
+
+// TokenTypeFromToken returns the TokenType for a raw token string (no "Bearer " prefix).
+// It is used when the server uses a single configured token (e.g. ServerManagedToken).
+func TokenTypeFromToken(token string) (TokenType, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return 0, ErrBadAuthorizationHeader
+	}
+	for prefix, tokenType := range supportedGitHubPrefixes {
+		if strings.HasPrefix(token, prefix) {
+			return tokenType, nil
+		}
+	}
+	if oldPatternRegexp.MatchString(token) {
+		return TokenTypePersonalAccessToken, nil
+	}
+	return 0, ErrBadAuthorizationHeader
+}

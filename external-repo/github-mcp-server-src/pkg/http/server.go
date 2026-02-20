@@ -67,6 +67,11 @@ type ServerConfig struct {
 	// ScopeChallenge indicates if we should return OAuth scope challenges, and if we should perform
 	// tool filtering based on token scopes.
 	ScopeChallenge bool
+
+	// ServerManagedToken, when set, is used for all requests when the client does not send an
+	// Authorization header. This allows a single token to be configured on the server (e.g. via
+	// GITHUB_PERSONAL_ACCESS_TOKEN) so clients can connect with only the server URL.
+	ServerManagedToken string
 }
 
 func RunHTTPServer(cfg ServerConfig) error {

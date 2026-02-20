@@ -10,7 +10,10 @@ import (
 	"github.com/github/github-mcp-server/pkg/utils"
 )
 
-func ExtractUserToken(oauthCfg *oauth.Config) func(next http.Handler) http.Handler {
+// ExtractUserToken extracts the user's token from the Authorization header and sets it in context.
+// If serverManagedToken is non-empty and the request has no Authorization header, that token is used
+// instead (server-managed single-token mode), so clients can connect with only the server URL.
+func ExtractUserToken(oauthCfg *oauth.Config, serverManagedToken string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -25,7 +28,22 @@ func ExtractUserToken(oauthCfg *oauth.Config) func(next http.Handler) http.Handl
 
 			tokenType, token, err := utils.ParseAuthorizationHeader(r)
 			if err != nil {
-				// For missing Authorization header, return 401 with WWW-Authenticate header per MCP spec
+				// For missing Authorization header: use server-managed token if configured
+				if errors.Is(err, utils.ErrMissingAuthorizationHeader) && serverManagedToken != "" {
+					tokenType, typeErr := utils.TokenTypeFromToken(serverManagedToken)
+					if typeErr != nil {
+						http.Error(w, typeErr.Error(), http.StatusBadRequest)
+						return
+					}
+					ctx = ghcontext.WithTokenInfo(ctx, &ghcontext.TokenInfo{
+						Token:     serverManagedToken,
+						TokenType: tokenType,
+					})
+					r = r.WithContext(ctx)
+					next.ServeHTTP(w, r)
+					return
+				}
+				// Otherwise return 401 with WWW-Authenticate header per MCP spec
 				if errors.Is(err, utils.ErrMissingAuthorizationHeader) {
 					sendAuthChallenge(w, r, oauthCfg)
 					return

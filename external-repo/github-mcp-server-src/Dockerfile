@@ -44,4 +44,4 @@ EXPOSE 8082
 # Set the entrypoint to the server binary
 ENTRYPOINT ["/server/github-mcp-server"]
 # Default arguments for ENTRYPOINT
-CMD ["stdio"]
+CMD ["http"]

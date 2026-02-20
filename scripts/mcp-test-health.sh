@@ -32,10 +32,11 @@ fi
 echo ""
 
 # 2) MCP initialize (실제 MCP 엔드포인트 가동 확인)
+# Notion MCP 등 대부분 HTTP MCP 서버는 /mcp 경로 사용
 if [[ "$BASE_URL" == *"/mcp"* ]]; then
   MCP_URL="$BASE_URL"
 elif [[ "$BASE_URL" =~ ^https?://[^/]+$ ]]; then
-  MCP_URL="${BASE_URL}/"
+  MCP_URL="${BASE_URL}/mcp"
 else
   MCP_URL="${BASE_URL}/mcp"
 fi

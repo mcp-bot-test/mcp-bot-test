@@ -15,6 +15,8 @@
 ## 🎯 주요 기능 (Features)
 
 * **Multi-Client Support:** Claude Desktop 앱과 Cursor IDE 양쪽에서 동일한 툴 제어 가능.
+* **중앙 토큰 관리:** 원격 MCP 서버를 사용하므로 토큰을 서버 한 곳에서만 관리하면 되어, 클라이언트별로 토큰을 넣을 필요가 없고 관리가 편함.
+* **팀 온보딩 간소화:** 같은 MCP 서버를 쓰는 팀원들이 각자 로컬 MCP 서버를 세팅하고 토큰을 따로 발급받는 반복적·비효율적인 작업을 하지 않아도 됨.
 * **Jira 이슈 핸들링:** "이번 주 내 티켓 리스트 뽑아줘" 등의 명령으로 실시간 이슈 트래킹.
 * **Notion 문서화:** 개발 진행 상황을 바탕으로 주간 업무 보고서 및 회의록 자동 생성.
 * **GitHub 연동:** IDE(Cursor) 내에서 곧바로 PR 상태 확인 및 코드 리뷰 요약 요청.
@@ -70,7 +72,7 @@ graph TD
 ### 기술 스택 (Tech Stack)
 
 * **Clients:** Claude Desktop App, Cursor IDE
-* **Protocol:** Model Context Protocol (MCP) over SSE (Server-Sent Events)
+* **Protocol:** Model Context Protocol (MCP)
 * **Backend:** Google Cloud Run (Node.js/TypeScript)
 * **Integrations:** Jira, Notion, GitHub APIs
 
@@ -90,19 +92,79 @@ graph TD
 
 ### 2. Cursor IDE 연결
 
-개발 팀원들은 코드를 작성하며 바로 Agent를 호출할 수 있습니다.
+Cursor IDE의 MCP 서버 설정 파일(`mcp.json`)을 직접 수정하여 연결할 수 있습니다.
 
-1. **Cursor Settings** (`Cmd + ,` or `Ctrl + ,`) 진입.
-2. **General > MCP Servers** 메뉴로 이동.
-3. **`Add new MCP server`** 클릭.
-4. **Type:** `SSE` 선택.
-5. **URL:** 배포된 MCP 서버 엔드포인트 입력.
-6. 저장 후 Composer(`Cmd + I`)나 Chat(`Cmd + L`)에서 `@`를 눌러 도구 연동 확인.
+**설정 파일 위치:**
+- macOS: `~/Library/Application Support/Cursor/User/globalStorage/mcp.json`
+- Windows: `%APPDATA%\Cursor\User\globalStorage\mcp.json`
+- Linux: `~/.config/Cursor/User/globalStorage/mcp.json`
 
-## 💡 트러블 슈팅 (Troubleshooting Log)
+**설정 예시 (`mcp.json`):**
 
-**이슈: `claude_desktop_config.json`을 통한 원격 연결 실패**
+```json
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://your-github-mcp-server.run.app/mcp"
+    },
+    "notion": {
+      "url": "https://your-notion-mcp-server.run.app/mcp"
+    },
+    "jira": {
+      "url": "https://your-jira-mcp-server.run.app/mcp"
+    }
+  }
+}
+```
 
-* **현상:** 초기 개발 시 로컬 설정 파일(`json`)에 원격 URL을 직접 입력했으나, Claude Desktop이 제대로 인식하지 못하거나 연결이 불안정한 현상 발생.
-* **원인:** 로컬 설정 파일 방식은 주로 로컬 프로세스 실행(`npx ...`)에 최적화되어 있어, 원격 SSE 스트림 처리에 일부 제약이 있었음.
-* **해결:** Claude Desktop의 설정 파일 직접 수정 방식을 버리고, 앱 내에서 제공하는 **'Custom Connector' UI**를 통해 엔드포인트를 등록하는 방식으로 변경하여 즉시 해결. 이를 통해 프록시 서버 등 불필요한 미들웨어 없이 직관적인 연결에 성공함.
+설정 후 Cursor IDE를 재시작하거나, Composer(`Cmd + I`)나 Chat(`Cmd + L`)에서 `@`를 눌러 도구 연동을 확인합니다.
+
+## 🚀 배포 작업 내역 (Deployment Work)
+
+### 1. GitHub MCP 서버 배포
+
+#### 코드 수정 사항
+
+**서버 단일 토큰 모드 구현:**
+- **목적:** 클라이언트가 URL만 설정하고 토큰 없이 연결 가능하도록 서버에 토큰을 미리 설정하는 모드 구현
+- **변경 파일:**
+  - `pkg/http/server.go`: `ServerConfig` 구조체에 `ServerManagedToken` 필드 추가
+  - `pkg/http/middleware/token.go`: `ExtractUserToken` 미들웨어에 서버 토큰 사용 로직 추가
+    - 클라이언트가 `Authorization` 헤더를 보내지 않으면 서버에 설정된 토큰 사용
+    - 토큰 타입 자동 감지 (`TokenTypeFromToken` 함수 추가)
+  - `pkg/utils/token.go`: 토큰 문자열로부터 `TokenType`을 반환하는 `TokenTypeFromToken` 함수 추가
+  - `cmd/github-mcp-server/main.go`: `httpConfig`에 `ServerManagedToken: viper.GetString("personal_access_token")` 설정 추가
+  - `pkg/http/handler.go`: `ExtractUserToken` 호출 시 서버 토큰 전달
+
+**동작 방식:**
+- 환경변수 `GITHUB_PERSONAL_ACCESS_TOKEN`이 설정되면 서버가 자동으로 해당 토큰 사용
+- 클라이언트가 `Authorization` 헤더를 보내면 클라이언트 토큰 우선 사용 (기존 동작 유지)
+- 클라이언트가 토큰 없이 요청하면 서버 토큰으로 자동 인증
+
+#### Dockerfile 수정
+
+- **변경:** `CMD ["stdio"]` → `CMD ["http"]`
+- **이유:** Cloud Run에서 HTTP 모드로 실행하기 위해 기본 커맨드를 변경
+
+---
+
+### 2. Notion & Jira MCP 서버 배포
+
+Notion과 Jira MCP 서버는 오픈소스 MCP 서버를 사용하여 배포했습니다.
+
+**오픈소스 레포지토리:**
+- **Notion MCP Server:** [makenotion/notion-mcp-server](https://github.com/makenotion/notion-mcp-server)
+- **Jira MCP Server:** [atlassian/atlassian-mcp-server](https://github.com/sooperset/mcp-atlassian)
+
+---
+
+### 공통 배포 설정
+
+**모든 MCP 서버:**
+- Cloud Run에 배포
+- 엔드포인트: `{BASE_URL}/mcp`
+- 헬스체크: 각 서버별 헬스체크 엔드포인트 제공 (Notion: `/health`, GitHub: `/mcp` 등)
+
+**테스트 스크립트:**
+- `scripts/mcp-test-all.sh`: 모든 서버에 대해 헬스체크, 세션 테스트, 부하 테스트, 동시성 테스트 수행
+- `scripts/mcp-servers.conf`: 서버 목록 및 포트 설정 (동적 포트 할당 지원)

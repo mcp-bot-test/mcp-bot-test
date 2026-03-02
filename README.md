@@ -1,5 +1,15 @@
 # 🤖 Workplace Automation AI Agent with MCP
 
+
+
+
+https://github.com/user-attachments/assets/40ebad09-9bd2-46ff-87b2-4c00c19a62d9
+
+
+
+
+
+
 ### Jira, Notion, GitHub 워크플로우 통합 자동화 프로젝트
 
 > **한 줄 요약:** 사내 협업 툴(Jira, Notion, GitHub)의 데이터를 **표준 MCP 프로토콜**로 통합하여, **Claude Desktop**뿐만 아니라 **Cursor IDE** 등 다양한 환경에서 업무를 자동화하는 AI Agent 시스템입니다.
